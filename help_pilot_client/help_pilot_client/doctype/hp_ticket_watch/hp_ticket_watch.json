@@ -1,0 +1,79 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "format:{user}::{hub_ticket}",
+ "creation": "2026-09-08 00:00:00.000000",
+ "description": "What this site last saw of a hub ticket, so it can tell the requester when something changes.",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "user",
+  "hub_ticket",
+  "column_break_watch",
+  "last_status",
+  "last_reply_count",
+  "last_seen_on"
+ ],
+ "fields": [
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "User",
+   "options": "User",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "hub_ticket",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Hub Ticket",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "column_break_watch",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "last_status",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Last Status"
+  },
+  {
+   "default": "0",
+   "fieldname": "last_reply_count",
+   "fieldtype": "Int",
+   "label": "Last Reply Count"
+  },
+  {
+   "fieldname": "last_seen_on",
+   "fieldtype": "Datetime",
+   "label": "Last Seen On"
+  }
+ ],
+ "hide_toolbar": 1,
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-09-08 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Help Pilot Client",
+ "name": "HP Ticket Watch",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "delete": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

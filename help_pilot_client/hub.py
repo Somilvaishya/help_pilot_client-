@@ -177,6 +177,20 @@ def add_reply(requester_email: str, ticket: str, comment: str):
 	)
 
 
+def attach_file(requester_email: str, ticket: str, file_name: str, content_base64: str):
+	return call(
+		"help_pilot.bridge.attach_file",
+		{
+			"source_site": _site(),
+			"requester_email": requester_email,
+			"ticket": ticket,
+			"file_name": file_name,
+			"content_base64": content_base64,
+		},
+		timeout=60,
+	)
+
+
 def set_status(requester_email: str, ticket: str, status: str):
 	return call(
 		"help_pilot.bridge.set_status",

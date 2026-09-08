@@ -45,7 +45,9 @@ def get_departments() -> list[dict]:
 
 
 @frappe.whitelist()
-def submit_ticket(subject: str, description: str, department: str | None = None) -> dict:
+def submit_ticket(
+	subject: str, description: str, department: str | None = None, attachment: str | None = None
+) -> dict:
 	"""Queue a ticket locally and try to deliver it.
 
 	Returns as soon as the row is written. The user is done at that point --
@@ -62,6 +64,7 @@ def submit_ticket(subject: str, description: str, department: str | None = None)
 			"subject": subject.strip(),
 			"description": description,
 			"department": department,
+			"attachment": attachment,
 		}
 	).insert()
 

@@ -1,6 +1,8 @@
 # Copyright (c) 2026, Somil Vaishya and contributors
 # For license information, please see license.txt
 
+import base64
+import os
 import uuid
 
 import frappe
@@ -63,6 +65,58 @@ class HPOutboxTicket(Document):
 		self.db_set("hub_ticket", result.get("name"), update_modified=False)
 		self.db_set("delivery_status", "Delivered", update_modified=False)
 		self.db_set("last_error", None, update_modified=False)
+
+		self.push_attachment()
+
+	def push_attachment(self):
+		"""Send the attached file on to the hub ticket.
+
+		Deliberately after the ticket is marked Delivered: the ticket itself is
+		what matters, and a file that fails to upload must not send the whole
+		row back through the retry loop and risk a second ticket.
+		"""
+		if not self.attachment or not self.hub_ticket:
+			return
+
+		try:
+			content = _read_local_file(self.attachment)
+		except Exception:
+			frappe.log_error(
+				title="Help Pilot: could not read attachment", message=frappe.get_traceback()
+			)
+			return
+
+		if content is None:
+			return
+
+		try:
+			hub.attach_file(
+				requester_email=self.raised_by,
+				ticket=self.hub_ticket,
+				file_name=os.path.basename(self.attachment.split("?")[0]),
+				content_base64=base64.b64encode(content).decode(),
+			)
+		except (hub.HubUnavailable, hub.HubRejected, hub.HubNotConfigured) as e:
+			# The ticket is already on the hub; note the miss and move on rather
+			# than pretending the whole delivery failed.
+			self.db_set("last_error", f"Ticket sent, attachment did not: {e}", update_modified=False)
+
+
+def _read_local_file(file_url: str) -> bytes | None:
+	"""Read a File this site holds, private or public.
+
+	`get_content()` hands back a str for anything it considers text and bytes
+	otherwise, so normalise before the caller tries to base64 it.
+	"""
+	name = frappe.db.get_value("File", {"file_url": file_url}, "name")
+	if not name:
+		return None
+
+	content = frappe.get_doc("File", name).get_content()
+	if isinstance(content, str):
+		return content.encode("utf-8")
+
+	return content
 
 
 def deliver(name: str):

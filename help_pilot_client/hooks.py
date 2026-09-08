@@ -19,6 +19,10 @@ scheduler_events = {
 		# Anything the hub has not accepted yet gets another go every 5 minutes.
 		"*/5 * * * *": [
 			"help_pilot_client.help_pilot_client.doctype.hp_outbox_ticket.hp_outbox_ticket.flush_outbox",
-		]
+		],
+		# Mirror hub status changes and agent replies into local notifications.
+		"*/10 * * * *": [
+			"help_pilot_client.notifications.sync_ticket_updates",
+		],
 	}
 }

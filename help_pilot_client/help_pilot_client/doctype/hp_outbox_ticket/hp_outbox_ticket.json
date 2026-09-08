@@ -15,6 +15,7 @@
   "hub_ticket",
   "description_section",
   "description",
+  "attachment",
   "requester_section",
   "raised_by",
   "reference",
@@ -69,6 +70,12 @@
    "fieldtype": "Text Editor",
    "label": "Description",
    "reqd": 1
+  },
+  {
+   "description": "Pushed to the hub ticket once it has been accepted.",
+   "fieldname": "attachment",
+   "fieldtype": "Attach",
+   "label": "Attachment"
   },
   {
    "collapsible": 1,

@@ -95,6 +95,12 @@ help_pilot_client.show_dialog = function (departments, on_submit) {
 				label: __("Any detail that would help"),
 				reqd: 1,
 			},
+			{
+				fieldname: "attachment",
+				fieldtype: "Attach",
+				label: __("Screenshot or file"),
+				description: __("Optional."),
+			},
 		],
 		primary_action_label: __("Send"),
 		primary_action(values) {
