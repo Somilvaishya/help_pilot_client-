@@ -22,8 +22,8 @@ Per site, in `site_config.json`:
 
 ```json
 "help_pilot_hub_url":    "http://127.0.0.1:8000",
-"help_pilot_hub_host":   "erp15.mevabite.com",
-"help_pilot_site_name":  "regency.mevabite.com",
+"help_pilot_hub_host":   "erp.example.com",
+"help_pilot_site_name":  "erp.example.com",
 "help_pilot_api_key":    "...",
 "help_pilot_api_secret": "..."
 ```
