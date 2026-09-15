@@ -36,8 +36,17 @@ help_pilot_client.play = function (name) {
 	if (!help_pilot_client.sound_enabled()) {
 		return;
 	}
+
+	// play_sound looks up an <audio> element by id and throws if the sound was
+	// never registered. Fall back to one Frappe always ships rather than go
+	// silent, which is indistinguishable from the feature being broken.
+	let sound = name || "hp_new";
+	if (!$("#sound-" + sound).length) {
+		sound = "alert";
+	}
+
 	try {
-		frappe.utils.play_sound(name || "chime");
+		frappe.utils.play_sound(sound);
 	} catch (e) {
 		// Browsers refuse audio before the first interaction. Silence is fine.
 	}
@@ -123,6 +132,8 @@ help_pilot_client.start_polling = function () {
 	});
 };
 
+help_pilot_client.since = null;
+
 help_pilot_client.poll = function () {
 	if (!help_pilot_client.available) {
 		return;
@@ -130,11 +141,15 @@ help_pilot_client.poll = function () {
 
 	frappe.call({
 		method: "help_pilot_client.api.poll_updates",
+		args: { since: help_pilot_client.since },
 		// A background check must never freeze the screen or shout on failure.
 		freeze: false,
-		no_spinner: true,
 		callback: ({ message }) => {
-			(message && message.events ? message.events : []).forEach(help_pilot_client.alert);
+			if (!message) {
+				return;
+			}
+			help_pilot_client.since = message.now || help_pilot_client.since;
+			(message.events || []).forEach(help_pilot_client.alert);
 		},
 		error: () => {},
 	});
@@ -219,7 +234,7 @@ help_pilot_client.menu = function ($item) {
 			const on = !help_pilot_client.sound_enabled();
 			help_pilot_client.set_sound(on);
 			if (on) {
-				help_pilot_client.play("chime");
+				help_pilot_client.play("hp_new");
 			}
 			frappe.show_alert({
 				message: on ? __("Sound on") : __("Sound off"),
@@ -275,6 +290,9 @@ help_pilot_client.show_dialog = function (departments, on_submit) {
 
 	const dialog = new frappe.ui.Dialog({
 		title: __("Raise a Ticket"),
+		// The default dialog is too narrow for two columns to survive; without
+		// this the column break collapses and everything stacks.
+		size: "large",
 		fields: [
 			{
 				fieldname: "department",
@@ -309,17 +327,19 @@ help_pilot_client.show_dialog = function (departments, on_submit) {
 				description: __("One line is enough."),
 				reqd: 1,
 			},
-			{
-				fieldname: "description",
-				fieldtype: "Text Editor",
-				label: __("Any detail that would help"),
-				reqd: 1,
-			},
+			{ fieldtype: "Column Break" },
 			{
 				fieldname: "attachment",
 				fieldtype: "Attach",
 				label: __("Screenshot or file"),
 				description: __("Optional. You can add more after sending."),
+			},
+			{ fieldtype: "Section Break" },
+			{
+				fieldname: "description",
+				fieldtype: "Text Editor",
+				label: __("Any detail that would help"),
+				reqd: 1,
 			},
 		],
 		primary_action_label: __("Send"),
@@ -331,7 +351,7 @@ help_pilot_client.show_dialog = function (departments, on_submit) {
 				args: values,
 				callback: () => {
 					dialog.hide();
-					help_pilot_client.play("submit");
+					help_pilot_client.play("hp_new");
 					frappe.show_alert(
 						{
 							message: __("Ticket sent. You can track it under My Help Tickets."),

@@ -86,15 +86,15 @@ def _reconcile(user: str, ticket: dict) -> list[dict]:
 		return []
 
 	messages = []
-	sound = "chime"
+	sound = "hp_new"
 
 	if status != watch.last_status:
 		messages.append(_("Your ticket {0} is now {1}.").format(ticket["name"], _(status)))
-		sound = "alert"
+		sound = "hp_status"
 
 	if reply_count > (watch.last_reply_count or 0) and last_reply_by != user:
 		messages.append(_("The {0} team replied to {1}.").format(ticket.get("department"), ticket["name"]))
-		sound = "email"
+		sound = "hp_reply"
 
 	if messages:
 		_notify(user, ticket, " ".join(messages))
@@ -111,7 +111,7 @@ def _reconcile(user: str, ticket: dict) -> list[dict]:
 
 	return [
 		{
-			"kind": "status" if sound == "alert" else "reply",
+			"kind": "status" if sound == "hp_status" else "reply",
 			"title": ticket.get("subject") or ticket["name"],
 			"body": " ".join(messages),
 			"ticket": ticket["name"],
@@ -129,5 +129,8 @@ def _notify(user: str, ticket: dict, message: str):
 			"for_user": user,
 			"type": "Alert",
 			"link": PAGE_LINK,
+			# Tagged so a browser poll can pick out Help Pilot's own alerts.
+			"document_type": "HP Ticket Watch",
+			"document_name": f"{user}::{ticket['name']}",
 		}
 	).insert(ignore_permissions=True)

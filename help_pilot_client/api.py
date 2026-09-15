@@ -10,6 +10,7 @@ session cannot read somebody else's tickets through this app.
 
 import frappe
 from frappe import _
+from frappe.utils import now_datetime
 
 from help_pilot_client import hub, notifications
 
@@ -189,31 +190,76 @@ def add_attachment(ticket: str, file_url: str) -> dict:
 
 
 @frappe.whitelist()
-def poll_updates() -> dict:
+def poll_updates(since: str | None = None) -> dict:
 	"""What to pop at this user right now.
 
-	Called by the browser once a minute. The hub round trip is throttled per
-	user, so ten open tabs still cost the hub one call, and a hub outage returns
-	quietly rather than throwing into the user's face every minute.
+	Detecting a change and showing it are kept apart on purpose. Whoever notices
+	first -- the scheduled job, or any one of this person's open tabs -- writes a
+	Notification Log. Every tab then pops whatever appeared since *it* last
+	looked. Tie them together and whichever ran first eats the event, and the
+	user sees only the bell count move, which reads as "it arrives on refresh".
+
+	The hub round trip is throttled per user, so ten open tabs still cost the hub
+	one call. The first call carries no `since` and returns nothing to pop: it
+	only hands back the clock, so old unread alerts are not replayed.
 	"""
 	me = _me()
+	now = str(now_datetime())
 
 	if not hub.is_configured():
-		return {"events": [], "polled": False}
+		return {"events": [], "polled": False, "now": now}
 
+	polled = False
 	guard = f"help_pilot_client_poll:{me}"
-	if frappe.cache().get_value(guard, expires=True):
-		return {"events": [], "polled": False}
 
-	frappe.cache().set_value(guard, 1, expires_in_sec=POLL_THROTTLE_SEC)
+	if not frappe.cache().get_value(guard, expires=True):
+		frappe.cache().set_value(guard, 1, expires_in_sec=POLL_THROTTLE_SEC)
+		try:
+			notifications.sync_for_user(me)
+			polled = True
+		except (hub.HubUnavailable, hub.HubRejected, hub.HubNotConfigured):
+			# The hub is down. Nothing new to find; still deliver anything the
+			# last successful check left behind.
+			pass
+		frappe.db.commit()
 
-	try:
-		events = notifications.sync_for_user(me)
-	except (hub.HubUnavailable, hub.HubRejected, hub.HubNotConfigured):
-		return {"events": [], "polled": False}
+	return {"events": _alerts_since(me, since), "polled": polled, "now": now}
 
-	frappe.db.commit()
-	return {"events": events, "polled": True}
+
+def _alerts_since(user: str, since: str | None) -> list[dict]:
+	if not since:
+		return []
+
+	rows = frappe.get_all(
+		"Notification Log",
+		filters={
+			"for_user": user,
+			"read": 0,
+			"document_type": "HP Ticket Watch",
+			"creation": [">", since],
+		},
+		fields=["subject", "email_content", "document_name"],
+		order_by="creation asc",
+		limit_page_length=10,
+	)
+
+	events = []
+	for row in rows:
+		body = row.email_content or ""
+		# The Notification Log has nowhere to keep which sound it wanted, and the
+		# two things worth saying are distinguishable from the text itself.
+		is_reply = "replied" in body
+		events.append(
+			{
+				"kind": "reply" if is_reply else "status",
+				"title": row.subject,
+				"body": body,
+				"ticket": (row.document_name or "").split("::")[-1],
+				"sound": "hp_reply" if is_reply else "hp_status",
+			}
+		)
+
+	return events
 
 
 @frappe.whitelist()

@@ -11,6 +11,18 @@ app_license = "mit"
 app_include_js = "/assets/help_pilot_client/js/help_pilot_client.js"
 app_include_css = "/assets/help_pilot_client/css/help_pilot_client.css"
 
+# Frappe ships these mp3 files but registers only some of them, and `chime` is
+# commented out in its own hooks -- so play_sound("chime") finds no <audio>
+# element and silently does nothing. Register our own names against the files
+# that are definitely there, and a little louder: 0.1 is inaudible in an office.
+sounds = [
+	{"name": "hp_new", "src": "/assets/frappe/sounds/chime.mp3", "volume": 0.5},
+	{"name": "hp_reply", "src": "/assets/frappe/sounds/email.mp3", "volume": 0.5},
+	{"name": "hp_status", "src": "/assets/frappe/sounds/alert.mp3", "volume": 0.5},
+	{"name": "hp_urgent", "src": "/assets/frappe/sounds/error.mp3", "volume": 0.6},
+]
+
+
 # ----------------------------------------------------------------------
 # Scheduled tasks
 # ----------------------------------------------------------------------

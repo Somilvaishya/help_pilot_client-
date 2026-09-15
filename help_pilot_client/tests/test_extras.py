@@ -155,31 +155,72 @@ class TestPolling(BaseOutboxTest):
 	def setUp(self):
 		super().setUp()
 		frappe.cache().delete_value(f"help_pilot_client_poll:{USER}")
+		frappe.db.delete("Notification Log", {"for_user": USER})
 
-	def poll(self, events):
+	def poll(self, since=None, detected=None):
 		frappe.set_user(USER)
 		try:
 			with patch.object(hub, "is_configured", return_value=True), patch(
-				"help_pilot_client.notifications.sync_for_user", return_value=events
+				"help_pilot_client.notifications.sync_for_user", return_value=detected or []
 			):
-				return api.poll_updates()
+				return api.poll_updates(since=since)
 		finally:
 			frappe.set_user("Administrator")
 
-	def test_a_poll_returns_what_to_pop(self):
-		event = {"kind": "reply", "title": "Printer", "body": "IT replied", "sound": "email"}
-		result = self.poll([event])
+	def log_alert(self, body="The IT team replied to HT-1."):
+		frappe.get_doc(
+			{
+				"doctype": "Notification Log",
+				"subject": "Printer offline",
+				"email_content": body,
+				"for_user": USER,
+				"type": "Alert",
+				"document_type": "HP Ticket Watch",
+				"document_name": f"{USER}::HT-1",
+			}
+		).insert(ignore_permissions=True)
 
-		self.assertTrue(result["polled"])
-		self.assertEqual(result["events"], [event])
+	def test_the_first_poll_only_hands_back_the_clock(self):
+		self.log_alert()
+		result = self.poll()
+
+		# Nothing to replay: the browser has no starting point yet.
+		self.assertEqual(result["events"], [])
+		self.assertTrue(result["now"])
+
+	def test_a_poll_returns_alerts_raised_since_it_last_looked(self):
+		start = self.poll()["now"]
+		self.log_alert()
+		result = self.poll(since=start)
+
+		self.assertEqual(len(result["events"]), 1)
+		self.assertEqual(result["events"][0]["sound"], "hp_reply")
+		self.assertIn("replied", result["events"][0]["body"])
+
+	def test_a_status_alert_gets_the_status_sound(self):
+		start = self.poll()["now"]
+		self.log_alert(body="Your ticket HT-1 is now Resolved.")
+		result = self.poll(since=start)
+
+		self.assertEqual(result["events"][0]["sound"], "hp_status")
+		self.assertEqual(result["events"][0]["kind"], "status")
+
+	def test_whoever_detects_it_every_tab_still_sees_it(self):
+		# The scheduled job found it and wrote the log; this tab detected
+		# nothing of its own, and must still pop it.
+		start = self.poll()["now"]
+		self.log_alert()
+		result = self.poll(since=start, detected=[])
+
+		self.assertEqual(len(result["events"]), 1)
 
 	def test_a_second_poll_inside_the_window_costs_the_hub_nothing(self):
-		self.poll([{"kind": "reply", "title": "One"}])
-		second = self.poll([{"kind": "reply", "title": "Two"}])
+		first = self.poll()
+		second = self.poll(since=first["now"])
 
 		# Several browser tabs must not multiply into several hub calls.
+		self.assertTrue(first["polled"])
 		self.assertFalse(second["polled"])
-		self.assertEqual(second["events"], [])
 
 	def test_an_unconfigured_site_polls_quietly(self):
 		frappe.set_user(USER)
@@ -235,7 +276,7 @@ class TestPollEvents(BaseOutboxTest):
 		events = self.sync(self.ticket(status="Resolved"))
 
 		self.assertEqual(len(events), 1)
-		self.assertEqual(events[0]["sound"], "alert")
+		self.assertEqual(events[0]["sound"], "hp_status")
 		self.assertIn("Resolved", events[0]["body"])
 
 	def test_an_agent_reply_comes_back_with_its_sound(self):
@@ -243,7 +284,7 @@ class TestPollEvents(BaseOutboxTest):
 		events = self.sync(self.ticket(reply_count=1, last_reply_by="agent@test.local"))
 
 		self.assertEqual(len(events), 1)
-		self.assertEqual(events[0]["sound"], "email")
+		self.assertEqual(events[0]["sound"], "hp_reply")
 
 	def test_your_own_reply_pops_nothing(self):
 		self.sync(self.ticket())
