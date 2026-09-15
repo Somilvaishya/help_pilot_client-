@@ -170,6 +170,30 @@ class HelpTicketList {
 					fieldtype: "Small Text",
 					label: __("Add a reply"),
 				},
+				{
+					fieldname: "more_file",
+					fieldtype: "Attach",
+					label: __("Add another screenshot or file"),
+					description: __("Sent to the team as soon as you pick it."),
+					onchange: () => {
+						const url = dialog.get_value("more_file");
+						if (!url) {
+							return;
+						}
+						frappe.call({
+							method: "help_pilot_client.api.add_attachment",
+							args: { ticket: ticket.name, file_url: url },
+							freeze: true,
+							freeze_message: __("Sending the file..."),
+							callback: () => {
+								dialog.set_value("more_file", "");
+								help_pilot_client.play("submit");
+								frappe.show_alert({ message: __("File sent"), indicator: "green" });
+								this.open_ticket(ticket.name);
+							},
+						});
+					},
+				},
 			],
 			primary_action_label: __("Reply"),
 			primary_action: ({ reply }) => {
@@ -188,13 +212,31 @@ class HelpTicketList {
 			},
 		});
 
+		const bits = [frappe.utils.escape_html(ticket.name), frappe.utils.escape_html(ticket.department)];
+		if (ticket.issue_category) {
+			bits.push(frappe.utils.escape_html(ticket.issue_category));
+		}
+		if (ticket.branch) {
+			bits.push(frappe.utils.escape_html(ticket.branch));
+		}
+
+		const files = ticket.attachments || [];
+		const files_html = files.length
+			? `<div class="hp-files">${files
+					.map(
+						(f) =>
+							`<span class="hp-file">${frappe.utils.escape_html(f.file_name)}</span>`
+					)
+					.join("")}</div>`
+			: "";
+
 		dialog.get_field("head").$wrapper.html(`
 			<div class="hp-ticket-meta" style="margin-bottom: 12px">
-				${frappe.utils.escape_html(ticket.name)} &middot;
-				${frappe.utils.escape_html(ticket.department)} &middot;
+				${bits.join(" &middot; ")} &middot;
 				<span class="indicator-pill ${color}">${__(ticket.status)}</span>
 			</div>
 			<div>${frappe.dom.remove_script_and_style(ticket.description)}</div>
+			${files_html}
 		`);
 
 		const comments = ticket.comments || [];

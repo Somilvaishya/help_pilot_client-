@@ -10,6 +10,7 @@
  "field_order": [
   "subject",
   "department",
+  "issue_category",
   "column_break_head",
   "delivery_status",
   "hub_ticket",
@@ -18,6 +19,8 @@
   "attachment",
   "requester_section",
   "raised_by",
+  "contact_no",
+  "branch",
   "reference",
   "column_break_req",
   "attempts",
@@ -37,6 +40,13 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Department"
+  },
+  {
+   "description": "The hub's category id, sent through as-is.",
+   "fieldname": "issue_category",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Issue Category"
   },
   {
    "fieldname": "column_break_head",
@@ -100,6 +110,18 @@
    "label": "Reference",
    "read_only": 1,
    "unique": 1
+  },
+  {
+   "fieldname": "contact_no",
+   "fieldtype": "Data",
+   "label": "Contact No.",
+   "options": "Phone"
+  },
+  {
+   "description": "Branch name as this site knows it; the hub creates a matching record if it has none.",
+   "fieldname": "branch",
+   "fieldtype": "Data",
+   "label": "Branch"
   },
   {
    "fieldname": "column_break_req",

@@ -52,12 +52,15 @@ def sync_ticket_updates():
 	frappe.db.commit()
 
 
-def sync_for_user(user: str):
+def sync_for_user(user: str) -> list[dict]:
+	"""Reconcile and return whatever is worth popping at the user right now."""
+	fresh = []
 	for ticket in hub.get_my_tickets(user):
-		_reconcile(user, ticket)
+		fresh.extend(_reconcile(user, ticket))
+	return fresh
 
 
-def _reconcile(user: str, ticket: dict):
+def _reconcile(user: str, ticket: dict) -> list[dict]:
 	name = f"{user}::{ticket['name']}"
 	watch = frappe.db.get_value(
 		"HP Ticket Watch", name, ["name", "last_status", "last_reply_count"], as_dict=True
@@ -80,15 +83,18 @@ def _reconcile(user: str, ticket: dict):
 				"last_seen_on": now_datetime(),
 			}
 		).insert(ignore_permissions=True)
-		return
+		return []
 
 	messages = []
+	sound = "chime"
 
 	if status != watch.last_status:
 		messages.append(_("Your ticket {0} is now {1}.").format(ticket["name"], _(status)))
+		sound = "alert"
 
 	if reply_count > (watch.last_reply_count or 0) and last_reply_by != user:
 		messages.append(_("The {0} team replied to {1}.").format(ticket.get("department"), ticket["name"]))
+		sound = "email"
 
 	if messages:
 		_notify(user, ticket, " ".join(messages))
@@ -99,6 +105,19 @@ def _reconcile(user: str, ticket: dict):
 		{"last_status": status, "last_reply_count": reply_count, "last_seen_on": now_datetime()},
 		update_modified=False,
 	)
+
+	if not messages:
+		return []
+
+	return [
+		{
+			"kind": "status" if sound == "alert" else "reply",
+			"title": ticket.get("subject") or ticket["name"],
+			"body": " ".join(messages),
+			"ticket": ticket["name"],
+			"sound": sound,
+		}
+	]
 
 
 def _notify(user: str, ticket: dict, message: str):

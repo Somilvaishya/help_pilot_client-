@@ -144,6 +144,26 @@ def create_ticket(**kwargs):
 	return call("help_pilot.bridge.create_ticket", {"source_site": _site(), **kwargs})
 
 
+def get_categories(department: str | None = None):
+	return (
+		call(
+			"help_pilot.bridge.get_categories",
+			{"source_site": _site(), "department": department},
+		)
+		or []
+	)
+
+
+def get_attachments(requester_email: str, ticket: str):
+	return (
+		call(
+			"help_pilot.bridge.get_attachments",
+			{"source_site": _site(), "requester_email": requester_email, "ticket": ticket},
+		)
+		or []
+	)
+
+
 def get_departments():
 	return call("help_pilot.bridge.get_departments", {"source_site": _site()}) or []
 

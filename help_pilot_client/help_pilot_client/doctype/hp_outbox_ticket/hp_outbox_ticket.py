@@ -47,6 +47,9 @@ class HPOutboxTicket(Document):
 				subject=self.subject,
 				description=self.description,
 				department=self.department or None,
+				issue_category=self.get("issue_category") or None,
+				branch=self.get("branch") or None,
+				contact_no=self.get("contact_no") or None,
 				source_reference=self.reference,
 			)
 		except hub.HubUnavailable as e:

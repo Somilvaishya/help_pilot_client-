@@ -148,3 +148,72 @@
 .hp-comment-body p:last-child {
 	margin-bottom: 0;
 }
+
+/* Help menu under the navbar button */
+
+.hp-help-item { position: relative; }
+
+.hp-help-menu {
+	position: absolute;
+	top: 34px;
+	right: 0;
+	z-index: 1030;
+	min-width: 178px;
+	padding: 5px;
+	background: var(--fg-color, #fff);
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius-md, 8px);
+	box-shadow: var(--shadow-lg, 0 4px 16px rgba(0, 0, 0, 0.12));
+}
+
+.hp-help-menu-item {
+	padding: 7px 11px;
+	border-radius: var(--border-radius-sm, 4px);
+	font-size: var(--text-md);
+	color: var(--text-color);
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.hp-help-menu-item:hover { background: var(--bg-light-gray); }
+
+.hp-help-menu-sep {
+	height: 1px;
+	margin: 5px 4px;
+	background: var(--border-color);
+}
+
+/* Activity toast */
+
+.hp-toast { min-width: 220px; }
+
+.hp-toast-title { font-weight: 600; color: var(--text-color); margin-bottom: 2px; }
+
+.hp-toast-body {
+	font-size: var(--text-sm);
+	color: var(--text-muted);
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+.hp-toast-open {
+	font-size: var(--text-sm);
+	font-weight: 500;
+	color: var(--primary-color, #2490ef);
+	margin-top: 5px;
+}
+
+/* Files already sent with a ticket */
+
+.hp-files { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+
+.hp-file {
+	font-size: var(--text-sm);
+	color: var(--text-muted);
+	background: var(--bg-light-gray);
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius-sm, 4px);
+	padding: 2px 9px;
+}

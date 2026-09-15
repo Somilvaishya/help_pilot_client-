@@ -11,10 +11,15 @@ session cannot read somebody else's tickets through this app.
 import frappe
 from frappe import _
 
-from help_pilot_client import hub
+from help_pilot_client import hub, notifications
 
 DEPARTMENT_CACHE_KEY = "help_pilot_client_departments"
 DEPARTMENT_CACHE_TTL = 600
+CATEGORY_CACHE_KEY = "help_pilot_client_categories"
+
+# The browser polls every 60s, but a person may have several tabs open. One hub
+# round trip per user per window keeps that from multiplying.
+POLL_THROTTLE_SEC = 45
 
 
 def _me() -> str:
@@ -35,7 +40,10 @@ def get_departments() -> list[dict]:
 	"""Departments offered in the dialog, cached so every click is not a round trip."""
 	_me()
 
-	cached = frappe.cache().get_value(DEPARTMENT_CACHE_KEY)
+	# `expires=True` matters: without it a miss is written into frappe.local
+	# cache as None, and `set_value` with a TTL never updates that, so every
+	# later read in the same request misses again and re-fetches.
+	cached = frappe.cache().get_value(DEPARTMENT_CACHE_KEY, expires=True)
 	if cached:
 		return cached
 
@@ -45,8 +53,45 @@ def get_departments() -> list[dict]:
 
 
 @frappe.whitelist()
+def get_categories(department: str | None = None) -> list[dict]:
+	"""Issue categories for one department, cached so typing is not a round trip."""
+	_me()
+
+	key = f"{CATEGORY_CACHE_KEY}:{department or 'all'}"
+	cached = frappe.cache().get_value(key, expires=True)
+	if cached is not None:
+		return cached
+
+	categories = hub.get_categories(department)
+	frappe.cache().set_value(key, categories, expires_in_sec=DEPARTMENT_CACHE_TTL)
+	return categories
+
+
+@frappe.whitelist()
+def get_form_options() -> dict:
+	"""Everything the Raise a Ticket dialog needs to draw itself."""
+	me = _me()
+
+	contact = frappe.db.get_value("User", me, ["mobile_no", "phone"], as_dict=True) or {}
+
+	return {
+		"departments": get_departments(),
+		# Branch comes from erpnext. A site without it still gets the field, as
+		# free text, rather than losing it entirely.
+		"has_branch_doctype": bool(frappe.db.exists("DocType", "Branch")),
+		"contact_no": contact.get("mobile_no") or contact.get("phone") or "",
+	}
+
+
+@frappe.whitelist()
 def submit_ticket(
-	subject: str, description: str, department: str | None = None, attachment: str | None = None
+	subject: str,
+	description: str,
+	department: str | None = None,
+	attachment: str | None = None,
+	issue_category: str | None = None,
+	branch: str | None = None,
+	contact_no: str | None = None,
 ) -> dict:
 	"""Queue a ticket locally and try to deliver it.
 
@@ -65,6 +110,9 @@ def submit_ticket(
 			"description": description,
 			"department": department,
 			"attachment": attachment,
+			"issue_category": issue_category,
+			"branch": branch,
+			"contact_no": contact_no,
 		}
 	).insert()
 
@@ -111,6 +159,61 @@ def add_reply(ticket: str, comment: str) -> dict:
 @frappe.whitelist()
 def set_status(ticket: str, status: str) -> dict:
 	return hub.set_status(_me(), ticket, status)
+
+
+@frappe.whitelist()
+def add_attachment(ticket: str, file_url: str) -> dict:
+	"""Send one more file to a ticket that is already on the hub."""
+	me = _me()
+
+	from help_pilot_client.help_pilot_client.doctype.hp_outbox_ticket.hp_outbox_ticket import (
+		_read_local_file,
+	)
+
+	# Reading the ticket also proves this person owns it.
+	hub.get_ticket(me, ticket)
+
+	content = _read_local_file(file_url)
+	if content is None:
+		frappe.throw(_("That file is no longer on this site."))
+
+	import base64
+	import os
+
+	return hub.attach_file(
+		requester_email=me,
+		ticket=ticket,
+		file_name=os.path.basename(file_url.split("?")[0]),
+		content_base64=base64.b64encode(content).decode(),
+	)
+
+
+@frappe.whitelist()
+def poll_updates() -> dict:
+	"""What to pop at this user right now.
+
+	Called by the browser once a minute. The hub round trip is throttled per
+	user, so ten open tabs still cost the hub one call, and a hub outage returns
+	quietly rather than throwing into the user's face every minute.
+	"""
+	me = _me()
+
+	if not hub.is_configured():
+		return {"events": [], "polled": False}
+
+	guard = f"help_pilot_client_poll:{me}"
+	if frappe.cache().get_value(guard, expires=True):
+		return {"events": [], "polled": False}
+
+	frappe.cache().set_value(guard, 1, expires_in_sec=POLL_THROTTLE_SEC)
+
+	try:
+		events = notifications.sync_for_user(me)
+	except (hub.HubUnavailable, hub.HubRejected, hub.HubNotConfigured):
+		return {"events": [], "polled": False}
+
+	frappe.db.commit()
+	return {"events": events, "polled": True}
 
 
 @frappe.whitelist()
