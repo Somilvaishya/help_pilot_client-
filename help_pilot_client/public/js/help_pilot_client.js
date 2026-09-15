@@ -280,8 +280,9 @@ help_pilot_client.show_dialog = function (departments, on_submit) {
 				fieldname: "department",
 				fieldtype: "Select",
 				label: __("Who can help?"),
-				options: departments,
-				default: departments[0],
+				// Blank first, deliberately. Pre-selecting a team means whoever
+				// does not read the field files against the wrong one.
+				options: [""].concat(departments),
 				reqd: 1,
 				onchange: () => help_pilot_client.load_categories(dialog),
 			},
@@ -348,8 +349,8 @@ help_pilot_client.show_dialog = function (departments, on_submit) {
 	});
 
 	dialog.show();
-	help_pilot_client.load_categories(dialog);
-	setTimeout(() => dialog.get_field("subject").set_focus(), 200);
+	dialog.set_df_property("issue_category", "hidden", 1);
+	setTimeout(() => dialog.get_field("department").set_focus(), 200);
 };
 
 help_pilot_client.load_categories = function (dialog) {
@@ -357,6 +358,12 @@ help_pilot_client.load_categories = function (dialog) {
 	const field = dialog.get_field("issue_category");
 
 	if (!department) {
+		// No team chosen yet, so any category still on screen belongs to the
+		// last one. Clear it rather than leave a stale choice behind.
+		dialog.set_value("issue_category", "");
+		field.df.options = [""];
+		field.refresh();
+		dialog.set_df_property("issue_category", "hidden", 1);
 		return;
 	}
 
