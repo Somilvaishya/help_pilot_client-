@@ -275,19 +275,6 @@ help_pilot_client.raise_ticket = function (on_submit) {
 help_pilot_client.show_dialog = function (departments, on_submit) {
 	const opts = help_pilot_client.options || {};
 
-	const branch_field = opts.has_branch_doctype
-		? {
-				fieldname: "branch",
-				fieldtype: "Link",
-				options: "Branch",
-				label: __("Which branch are you at?"),
-		  }
-		: {
-				fieldname: "branch",
-				fieldtype: "Data",
-				label: __("Which branch are you at?"),
-		  };
-
 	const dialog = new frappe.ui.Dialog({
 		title: __("Raise a Ticket"),
 		// The default dialog is too narrow for two columns to survive; without
@@ -311,7 +298,12 @@ help_pilot_client.show_dialog = function (departments, on_submit) {
 				options: [""],
 			},
 			{ fieldtype: "Column Break" },
-			branch_field,
+			{
+				// Plain text: this site's branch list means nothing on the hub.
+				fieldname: "branch",
+				fieldtype: "Data",
+				label: __("Which branch are you at?"),
+			},
 			{
 				fieldname: "contact_no",
 				fieldtype: "Data",

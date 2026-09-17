@@ -77,9 +77,6 @@ def get_form_options() -> dict:
 
 	return {
 		"departments": get_departments(),
-		# Branch comes from erpnext. A site without it still gets the field, as
-		# free text, rather than losing it entirely.
-		"has_branch_doctype": bool(frappe.db.exists("DocType", "Branch")),
 		"contact_no": contact.get("mobile_no") or contact.get("phone") or "",
 	}
 

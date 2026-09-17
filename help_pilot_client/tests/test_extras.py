@@ -78,7 +78,8 @@ class TestFormOptions(BaseOutboxTest):
 
 		self.assertEqual([d["name"] for d in options["departments"]], ["IT"])
 		self.assertEqual(options["contact_no"], "99999 11111")
-		self.assertIsInstance(options["has_branch_doctype"], bool)
+		# Branch is plain text now, so the form needs nothing to draw it.
+		self.assertNotIn("has_branch_doctype", options)
 
 	def test_categories_are_cached_per_department(self):
 		frappe.cache().delete_value(f"{api.CATEGORY_CACHE_KEY}:IT")
