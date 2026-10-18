@@ -156,9 +156,18 @@ help_pilot_client.poll = function () {
 };
 
 // ----------------------------------------------------------------------
-// Navbar button
+// Help button
+//
+// v15 keeps the desk's controls in a top navbar. v16 has no navbar at all:
+// search and notifications are rows in a band at the top of the sidebar, so
+// on v16 Help becomes one more row there. Whichever one mounts, the rest of
+// the app is the same.
 // ----------------------------------------------------------------------
 $(document).on("toolbar_setup", () => help_pilot_client.mount_button());
+
+// Fired at the start of every module's sidebar build, before the band is
+// filled the first time -- hence the next tick.
+$(document).on("sidebar_setup", () => setTimeout(() => help_pilot_client.mount_sidebar_row()));
 
 $(document).ready(() => {
 	if ($(".navbar").length) {
@@ -167,7 +176,7 @@ $(document).ready(() => {
 });
 
 help_pilot_client.mount_button = function () {
-	if ($(".hp-help-btn").length) {
+	if ($(".hp-help-item").length) {
 		return;
 	}
 
@@ -176,8 +185,10 @@ help_pilot_client.mount_button = function () {
 		return;
 	}
 
+	// Hidden until the server says the hub is configured, or it flashes on
+	// every page load of a site that has no hub.
 	const $item = $(`
-		<li class="nav-item dropdown hp-help-item">
+		<li class="nav-item dropdown hp-help-item hidden">
 			<button class="hp-help-btn" type="button" title="${__("Help tickets")}">
 				<svg class="icon icon-sm"><use href="#icon-help"></use></svg>
 				<span>${__("Help")}</span>
@@ -185,12 +196,37 @@ help_pilot_client.mount_button = function () {
 		</li>
 	`);
 
-	$item.find("button").on("click", (e) => {
-		e.stopPropagation();
-		help_pilot_client.menu($item);
-	});
+	$item.find("button").on("click", () => help_pilot_client.menu($item));
 	$nav.prepend($item);
 
+	help_pilot_client.activate($item);
+};
+
+help_pilot_client.mount_sidebar_row = function () {
+	const $band = $(".body-sidebar .standard-items-band");
+	if (!$band.length || $(".hp-help-item").length || !frappe.ui.sidebar_item?.TypeButton) {
+		return;
+	}
+
+	// Built the way the sidebar builds its own Notification row, so it looks
+	// and collapses to the rail like one.
+	const row = new frappe.ui.sidebar_item.TypeButton({
+		container: $band,
+		item: {
+			label: __("Help"),
+			icon: "life-buoy",
+			standard: true,
+			type: "Button",
+			class: "hp-help-item hidden",
+			onClick: () => help_pilot_client.menu(row.wrapper),
+		},
+	});
+
+	help_pilot_client.activate(row.wrapper);
+};
+
+// Show the button only where the hub is configured, and start listening.
+help_pilot_client.activate = function ($item) {
 	frappe.call({
 		method: "help_pilot_client.api.is_available",
 		callback: ({ message }) => {
@@ -220,7 +256,16 @@ help_pilot_client.menu = function ($item) {
 				${help_pilot_client.sound_enabled() ? __("Turn sound off") : __("Turn sound on")}
 			</div>
 		</div>
-	`).appendTo($item);
+	`).appendTo(document.body);
+
+	// On the body, not inside the button: the v16 sidebar clips anything that
+	// overhangs it. Drop down from the button, kept on screen.
+	const rect = $item[0].getBoundingClientRect();
+	const width = $menu.outerWidth();
+	$menu.css({
+		top: rect.bottom + 4,
+		left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)),
+	});
 
 	$menu.on("click", ".hp-help-menu-item", function () {
 		const act = $(this).data("act");
@@ -243,7 +288,9 @@ help_pilot_client.menu = function ($item) {
 		}
 	});
 
-	$(document).one("click", () => $menu.remove());
+	// Next tick: the click that opened the menu is still bubbling up to the
+	// document, and would close it again straight away.
+	setTimeout(() => $(document).one("click", () => $menu.remove()));
 };
 
 // ----------------------------------------------------------------------

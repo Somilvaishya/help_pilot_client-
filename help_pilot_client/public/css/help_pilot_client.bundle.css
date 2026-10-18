@@ -149,14 +149,10 @@
 	margin-bottom: 0;
 }
 
-/* Help menu under the navbar button */
-
-.hp-help-item { position: relative; }
+/* Help menu under the button (navbar on v15, sidebar row on v16). Placed by JS. */
 
 .hp-help-menu {
-	position: absolute;
-	top: 34px;
-	right: 0;
+	position: fixed;
 	z-index: 1030;
 	min-width: 178px;
 	padding: 5px;

@@ -21,7 +21,10 @@ from frappe.utils import now_datetime
 
 from help_pilot_client import hub
 
-PAGE_LINK = "/app/my-help-tickets"
+# v16 moved the desk from /app to /desk. /app still redirects there, but the v16
+# router only treats /desk as in-app, so an /app link reloads the whole desk.
+DESK_PREFIX = "/desk" if int(frappe.__version__.split(".")[0]) >= 16 else "/app"
+PAGE_LINK = f"{DESK_PREFIX}/my-help-tickets"
 
 
 def sync_ticket_updates():
